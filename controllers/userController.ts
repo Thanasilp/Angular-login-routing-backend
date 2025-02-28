@@ -33,4 +33,47 @@ const registerUser = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-export { registerUser };
+const loginUser = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { email, password } = req.body;
+
+    //Check wheter there is an account or not
+    const user = await userModel.findOne({ email });
+    if (!user) {
+      res.status(401).json({ success: false, message: "Invalid credentials" });
+      return;
+    }
+
+    //check password and compare password with the existed one
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordValid) {
+      res.status(401).json({ success: false, message: "Invalid credentials" });
+      return;
+    }
+
+    // ตรวจสอบ JWT_SECRET
+    const secretKey = process.env.JWT_SECRET;
+    if (!secretKey) {
+      throw new Error("JWT_SECRET is not defined in environment variables");
+    }
+
+    // สร้าง JWT token
+    const token = jwt.sign({ _id: user._id }, secretKey, { expiresIn: "2h" });
+
+    //Send response
+    res
+      .status(200)
+      .json({
+        success: true,
+        message: "Login successful",
+        token,
+        user: { id: user._id, email: user.email, username: user.username },
+      });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+export { registerUser, loginUser };
